@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kurátorský výběr — Generátor privátní nabídky</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); padding: 2rem 1rem; }
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { color: var(--muted); font-size: 0.95rem; }
+
+    .control-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 1rem;
+      margin-top: 1.25rem;
+      align-items: flex-end;
+    }
+
+    @media (max-width: 768px) {
+      .control-panel { grid-template-columns: 1fr; }
+    }
+
+    label { font-size: 0.85rem; font-weight: 600; color: var(--muted); display: block; margin-bottom: 0.3rem; }
+    input[type="text"], select {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    button.btn-primary {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.7rem 1.4rem;
+      border-radius: var(--radius);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button.btn-primary:hover { background: var(--accent-hover); }
+
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    th { background: #f1f5f9; padding: 0.85rem 1rem; font-weight: 600; border-bottom: 1px solid var(--border); }
+    td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:hover { background: #f8fafc; }
+
+    .img-preview {
+      width: 48px;
+      height: 48px;
+      border-radius: 4px;
+      object-fit: cover;
+      background: #e2e8f0;
+      display: block;
+    }
+
+    .edit-input {
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      width: 100%;
+      font-size: 0.9rem;
+    }
+
+    .output-box {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: var(--radius);
+      display: none;
+    }
+    .output-box h3 { color: #065f46; margin-bottom: 0.5rem; font-size: 1.1rem; }
+    .share-link-wrapper { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .share-link { flex: 1; padding: 0.6rem; font-family: monospace; background: white; border: 1px solid #a7f3d0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Příprava nabídky na míru</h1>
+      <p>Vyberte sochy, upravte jejich názvy a zvolte cenovou hladinu pro konkrétního klienta.</p>
+
+      <div class="control-panel">
+        <div>
+          <label>Jméno klienta / Název nabídky:</label>
+          <input type="text" id="clientName" placeholder="např. Ing. Petr Novák">
+        </div>
+        <div>
+          <label>Cenová hladina pro tuto nabídku:</label>
+          <select id="priceLevel">
+            <option value="autorska">Autorská prodejní cena (včetně DPH)</option>
+            <option value="snizena">Snížená autorská cena (partnerská)</option>
+            <option value="zadna">Nezobrazovat ceny (cena na vyžádání)</option>
+          </select>
+        </div>
+        <div>
+          <button class="btn-primary" onclick="generateOfferLink()">Vygenerovat odkaz</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="table-container">
+      <table id="sculpturesTable">
+        <thead>
+          <tr>
+            <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
+            <th style="width: 60px;">Foto</th>
+            <th style="width: 280px;">Název pro nabídku (lze upravit)</th>
+            <th>Rok</th>
+            <th>Rozměry (V×Š×H)</th>
+            <th>Ceny v databázi</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="6" style="text-align: center; padding: 2rem;">Načítám databázi děl...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="outputBox" class="output-box">
+      <h3>✓ Osobní nabídka byla úspěšně vygenerována</h3>
+      <p style="font-size: 0.9rem; color: #047857;">Tento odkaz můžete zkopírovat a poslat klientovi. Uvidí pouze vybrané sochy s vámi upravenými názvy.</p>
+      <div class="share-link-wrapper">
+        <input type="text" id="shareUrl" class="share-link" readonly>
+        <button class="btn-primary" onclick="copyLink()">Kopírovat</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // URL publikovaného CSV z tabulky Google Sheets
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4krynjfF6KxDz1v0fiwTyysbOLMYsZmuFD3zlpj_EiC7qfEmjqciej8mjpRXUjuO0gtiWEBrWPaGn/pub?output=csv";
+
+    let rawData = [];
+
+    // Načtení dat z tabulky
+    async function loadData() {
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          rawData = results.data;
+          renderTable();
+        }
+      });
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("tableBody");
+      tbody.innerHTML = "";
+
+      rawData.forEach((row, index) => {
+        const name = (row["nazev"] || row["název"] || "Bez názvu").trim();
+        const year = row["rok"] || "–";
+        const v = row["výška"] || row["vyska"] || "–";
+        const s = row["šířka"] || row["sirka"] || "–";
+        const h = row["hloubka"] || "–";
+        const pricePublic = row["cena včetně DPH"] || row["cena"] || "";
+        const img = row["odkaz na fotku "] || row["odkaz na fotku"] || "";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input type="checkbox" class="row-select" data-index="${index}"></td>
+          <td><img src="${img}" class="img-preview" onerror="this.style.opacity=0.2"></td>
+          <td>
+            <input type="text" class="edit-input name-input" data-index="${index}" value="${escapeHtml(name)}">
+          </td>
+          <td>${escapeHtml(year)}</td>
+          <td>${v} × ${s} × ${h} cm</td>
+          <td style="font-size: 0.8rem; color: var(--muted);">
+            Prodejní: ${pricePublic || "–"}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function toggleSelectAll(master) {
+      document.querySelectorAll(".row-select").forEach(cb => cb.checked = master.checked);
+    }
+
+    function generateOfferLink() {
+      const client = document.getElementById("clientName").value.trim() || "Vážený zájemce";
+      const priceChoice = document.getElementById("priceLevel").value;
+      const selectedCheckboxes = document.querySelectorAll(".row-select:checked");
+
+      if (selectedCheckboxes.length === 0) {
+        alert("Vyberte prosím alespoň jednu sochu pro nabídku.");
+        return;
+      }
+
+      const offerItems = [];
+
+      selectedCheckboxes.forEach(cb => {
+        const idx = cb.dataset.index;
+        const original = rawData[idx];
+        const customName = document.querySelector(`.name-input[data-index="${idx}"]`).value.trim();
+
+        // Výběr ceny podle zvolené hladiny
+        let finalPrice = "";
+        if (priceChoice === "autorska") {
+          finalPrice = original["cena včetně DPH"] || original["cena"] || "";
+        } else if (priceChoice === "snizena") {
+          finalPrice = original["snížená autorská"] || original["snizena"] || original["cena včetně DPH"] || "";
+        }
+
+        offerItems.push({
+          id: idx,
+          n: customName, // upravený název
+          y: original["rok"] || "",
+          v: original["výška"] || "",
+          s: original["šířka"] || "",
+          h: original["hloubka"] || "",
+          p: finalPrice,
+          img: original["odkaz na fotku "] || original["odkaz na fotku"] || ""
+        });
+      });
+
+      // Bezpečné zakódování výběru do URL parametru (klient nevidí zbytek tabulky)
+      const payload = {
+        c: client,
+        items: offerItems
+      };
+
+      const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+      
+      // Cesta k zobrazení pro klienta (soubor index.html na stejném webu)
+      const baseUrl = window.location.href.replace("generator.html", "index.html");
+      const finalLink = `${baseUrl}#nabidka=${encoded}`;
+
+      document.getElementById("shareUrl").value = finalLink;
+      document.getElementById("outputBox").style.display = "block";
+      document.getElementById("outputBox").scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function copyLink() {
+      const input = document.getElementById("shareUrl");
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      alert("Odkaz byl zkopírován do schránky.");
+    }
+
+    function escapeHtml(str) {
+      return String(str || "").replace(/[&<>"']/g, m => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[m]);
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

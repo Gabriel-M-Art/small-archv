@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Katalog plastik a soch</title>
+  
+  <!-- Knihovna PapaParse pro bezchybné stažení a zpracování CSV -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --text: #171717;
+      --muted: #737373;
+      --border: #e5e7eb;
+      --accent: #111827;
+      --radius: 10px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 2.5rem 1.25rem;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header-titles h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-titles p {
+      color: var(--muted);
+      font-size: 1rem;
+      margin-top: 0.25rem;
+    }
+
+    .stat-badge {
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.9rem;
+      border-radius: 20px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 260px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--text);
+      box-shadow: 0 0 0 1px var(--text);
+    }
+
+    .select-sort {
+      padding: 0.8rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.75rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.09);
+    }
+
+    .image-wrapper {
+      width: 100%;
+      height: 280px;
+      background: #f1f5f9;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+
+    .card:hover .image-wrapper img {
+      transform: scale(1.03);
+    }
+
+    .placeholder-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .placeholder-box svg {
+      width: 40px;
+      height: 40px;
+      opacity: 0.4;
+    }
+
+    .card-info {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+      color: var(--text);
+    }
+
+    .card-year {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .card-price {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #1e3a8a;
+      margin-bottom: 1rem;
+    }
+
+    .card-dimensions {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .card-dimensions strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Modální okno (Detail) */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 100;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius);
+      max-width: 860px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+    }
+
+    @media (max-width: 768px) {
+      .modal {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .modal-gallery {
+      background: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .modal-main-img-box {
+      width: 100%;
+      height: 380px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-main-img-box img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+
+    .thumbnails {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .thumb {
+      width: 60px;
+      height: 60px;
+      border-radius: 4px;
+      border: 2px solid transparent;
+      overflow: hidden;
+      cursor: pointer;
+      background: white;
+    }
+
+    .thumb.active {
+      border-color: var(--accent);
+    }
+
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .modal-body {
+      padding: 2.25rem 2rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: white;
+      border: 1px solid var(--border);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      line-height: 1;
+      z-index: 10;
+    }
+
+    .modal-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .modal-meta {
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+
+    .specs-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+
+    .specs-table tr {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .specs-table td {
+      padding: 0.65rem 0;
+    }
+
+    .specs-table td:last-child {
+      text-align: right;
+      font-weight: 600;
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 4rem 1rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="header-titles">
+        <h1>Ateliérový katalog</h1>
+        <p>Přehled soch, plastik a autorských skic</p>
+      </div>
+      <div id="counter" class="stat-badge">Načítání...</div>
+    </header>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <input type="text" id="searchInput" class="search-input" placeholder="Hledat podle názvu díla...">
+      </div>
+      <select id="sortSelect" class="select-sort">
+        <option value="name-asc">Název (A → Z)</option>
+        <option value="name-desc">Název (Z → A)</option>
+        <option value="year-desc">Rok (od nejnovějšího)</option>
+        <option value="year-asc">Rok (od nejstaršího)</option>
+      </select>
+    </div>
+
+    <div id="grid" class="grid">
+      <!-- Položky se vykreslí dynamicky -->
+    </div>
+  </div>
+
+  <!-- Modal okno pro detail díla -->
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal">
+      <button class="modal-close" id="modalCloseBtn">&times;</button>
+      
+      <div class="modal-gallery">
+        <div class="modal-main-img-box" id="modalMainImgBox"></div>
+        <div class="thumbnails" id="modalThumbnails"></div>
+      </div>
+
+      <div class="modal-body">
+        <h2 id="modalTitle" class="modal-title"></h2>
+        <div id="modalYear" class="modal-meta"></div>
+
+        <table class="specs-table">
+          <tr>
+            <td>Výška (V)</td>
+            <td id="modalV">–</td>
+          </tr>
+          <tr>
+            <td>Šířka (Š)</td>
+            <td id="modalS">–</td>
+          </tr>
+          <tr>
+            <td>Hloubka (H)</td>
+            <td id="modalH">–</td>
+          </tr>
+          <tr id="modalPriceRow" style="display: none;">
+            <td>Cena (včetně DPH)</td>
+            <td id="modalPrice">–</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // VLOŽTE ZDE VÁŠ PUBLIKOVANÝ CSV ODKAZ Z TABULKY "Public test Katalog 1":
+    // (Soubor -> Sdílet -> Publikovat na web -> Zvolit: Hodnoty oddělené čárkami .csv)
+    // =========================================================================
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKt9ASjsUxvn7LEEF8emZ5q93LlQMU2aU53y8M15P1wSFXOCVe47ZmBfBsVlOjlvXmOuvpYV_zcMRF/pub?output=csv";
+
+    let catalogItems = [];
+
+    async function initCatalog() {
+      if (!CSV_URL) {
+        document.getElementById("grid").innerHTML = `
+          <div class="empty-state">
+            Není vložen CSV odkaz. Otevřete <code>index.html</code> v editoru a vložte odkaz do proměnné <code>CSV_URL</code>.
+          </div>`;
+        document.getElementById("counter").textContent = "0 děl";
+        return;
+      }
+
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        delimiter: "", // Automaticky rozpozná jak čárky, tak české středníky
+        complete: function(results) {
+          catalogItems = results.data;
+          renderCatalog(catalogItems);
+        },
+        error: function(err) {
+          console.error("Chyba načítání dat:", err);
+          document.getElementById("grid").innerHTML = `<div class="empty-state">Chyba při stahování tabulky z Google Sheets.</div>`;
+        }
+      });
+    }
+
+   // Pomocná funkce pro bezpečný převod odkazů z Google Drive
+function formatDriveUrl(url) {
+  if (!url) return "";
+  url = url.trim();
+  
+  // Vytažení ID souboru z jakéhokoli formátu Google Drive odkazu
+  const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) {
+    // Přímý, spolehlivý formát pro externí weby
+    return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1000`;
+  }
+  return url;
+}
+
+function renderCatalog(items) {
+  const grid = document.getElementById("grid");
+  const counter = document.getElementById("counter");
+  grid.innerHTML = "";
+
+  counter.textContent = `${items.length} ${getNounDeclension(items.length, 'položka', 'položky', 'položek')}`;
+
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="empty-state">Nebyly nalezeny žádné odpovídající položky.</div>`;
+    return;
+  }
+
+  items.forEach(item => {
+    const getVal = (colNames) => {
+      for (const rawKey of Object.keys(item)) {
+        const cleanKey = rawKey.trim().toLowerCase();
+        if (colNames.includes(cleanKey)) {
+          return item[rawKey] ? String(item[rawKey]).trim() : "";
+        }
+      }
+      return "";
+    };
+
+    const name = getVal(["nazev", "název", "name"]) || "Bez názvu";
+    const year = getVal(["rok", "year"]) || "–";
+    const v = getVal(["výška", "vyska", "v"]) || "–";
+    const s = getVal(["šířka", "sirka", "š", "s"]) || "–";
+    const h = getVal(["hloubka", "h"]) || "–";
+    const price = getVal(["cena včetně dph", "cena"]) || "";
+
+    // Načtení odkazů na fotky
+    const rawImg1 = getVal(["odkaz na fotku", "odkaz na fotku 1", "foto", "fotka"]);
+    const rawImg2 = getVal(["odkaz na fotku č 2", "odkaz na fotku c 2", "odkaz na fotku 2"]);
+    const rawImg3 = getVal(["odkaz na fotku č 3", "odkaz na fotku c 3", "odkaz na fotku 3"]);
+
+    const allImages = [rawImg1, rawImg2, rawImg3]
+      .filter(u => u && u.startsWith("http"))
+      .map(formatDriveUrl);
+
+    const mainImg = allImages.length > 0 ? allImages[0] : "";
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    // referrerpolicy="no-referrer" zabraňuje Googlu blokovat načtení fotky z cizí domény
+    let imageMarkup = "";
+    if (mainImg) {
+      imageMarkup = `<img src="${escapeAttr(mainImg)}" alt="${escapeAttr(name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.parentElement.innerHTML=getPlaceholderMarkup();">`;
+    } else {
+      imageMarkup = getPlaceholderMarkup();
+    }
+
+    let priceMarkup = price ? `<div class="card-price">${escapeHtml(price)}</div>` : "";
+
+    card.innerHTML = `
+      <div class="image-wrapper">
+        ${imageMarkup}
+      </div>
+      <div class="card-info">
+        <h3 class="card-title">${escapeHtml(name)}</h3>
+        <div class="card-year">Rok: <strong>${escapeHtml(year)}</strong></div>
+        ${priceMarkup}
+        <div class="card-dimensions">
+          <span>V: <strong>${escapeHtml(v)}</strong> cm</span>
+          <span>Š: <strong>${escapeHtml(s)}</strong> cm</span>
+          <span>H: <strong>${escapeHtml(h)}</strong> cm</span>
+        </div>
+      </div>
+    `;
+
+    card.addEventListener("click", () => openModal({
+      name, year, v, s, h, price, allImages
+    }));
+
+    grid.appendChild(card);
+  });
+}
+
+    function getPlaceholderMarkup() {
+      return `
+        <div class="placeholder-box">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
+          <span>Fotografie v přípravě</span>
+        </div>
+      `;
+    }
+
+    // Otevření detailu (Modal)
+    function openModal(data) {
+      document.getElementById("modalTitle").textContent = data.name;
+      document.getElementById("modalYear").textContent = `Rok vzniku: ${data.year}`;
+      document.getElementById("modalV").textContent = `${data.v} cm`;
+      document.getElementById("modalS").textContent = `${data.s} cm`;
+      document.getElementById("modalH").textContent = `${data.h} cm`;
+
+      const priceRow = document.getElementById("modalPriceRow");
+      if (data.price) {
+        document.getElementById("modalPrice").textContent = data.price;
+        priceRow.style.display = "table-row";
+      } else {
+        priceRow.style.display = "none";
+      }
+
+      const mainImgBox = document.getElementById("modalMainImgBox");
+      const thumbBox = document.getElementById("modalThumbnails");
+      thumbBox.innerHTML = "";
+
+      if (data.allImages && data.allImages.length > 0) {
+        mainImgBox.innerHTML = `<img id="activeModalImg" src="${escapeAttr(data.allImages[0])}" alt="${escapeAttr(data.name)}" referrerpolicy="no-referrer">`;
+
+        // Pokud je více fotek než jedna, vytvoří miniatury
+        if (data.allImages.length > 1) {
+          data.allImages.forEach((imgUrl, idx) => {
+            const thumb = document.createElement("div");
+            thumb.className = `thumb ${idx === 0 ? 'active' : ''}`;
+            thumb.innerHTML = `<img src="${escapeAttr(imgUrl)}" alt="">`;
+            thumb.addEventListener("click", () => {
+              document.getElementById("activeModalImg").src = imgUrl;
+              document.querySelectorAll(".thumb").forEach(t => t.classList.remove("active"));
+              thumb.classList.add("active");
+            });
+            thumbBox.appendChild(thumb);
+          });
+        }
+      } else {
+        mainImgBox.innerHTML = getPlaceholderMarkup();
+      }
+
+      document.getElementById("modalOverlay").classList.add("active");
+    }
+
+    function closeModal() {
+      document.getElementById("modalOverlay").classList.remove("active");
+    }
+
+    document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "modalOverlay") closeModal();
+    });
+
+    // Filtrování a řazení
+    function applyFilters() {
+      const q = document.getElementById("searchInput").value.toLowerCase().trim();
+      const sort = document.getElementById("sortSelect").value;
+
+      let filtered = catalogItems.filter(item => {
+        const name = (item["nazev"] || item["název"] || item["Nazev"] || "").toLowerCase();
+        return name.includes(q);
+      });
+
+      filtered.sort((a, b) => {
+        const nameA = (a["nazev"] || a["název"] || "").toLowerCase();
+        const nameB = (b["nazev"] || b["název"] || "").toLowerCase();
+        const yearA = parseInt(a["rok"]) || 0;
+        const yearB = parseInt(b["rok"]) || 0;
+
+        if (sort === "name-asc") return nameA.localeCompare(nameB, "cs");
+        if (sort === "name-desc") return nameB.localeCompare(nameA, "cs");
+        if (sort === "year-desc") return yearB - yearA;
+        if (sort === "year-asc") return yearA - yearB;
+        return 0;
+      });
+
+      renderCatalog(filtered);
+    }
+
+    function escapeHtml(str) {
+      return String(str || "").replace(/[&<>"']/g, m => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[m]);
+    }
+
+    function escapeAttr(str) {
+      return String(str || "").replace(/"/g, '&quot;');
+    }
+
+    function getNounDeclension(n, one, few, many) {
+      if (n === 1) return one;
+      if (n >= 2 && n <= 4) return few;
+      return many;
+    }
+
+    document.getElementById("searchInput").addEventListener("input", applyFilters);
+    document.getElementById("sortSelect").addEventListener("change", applyFilters);
+
+    initCatalog();
+  </script>
+</body>
+</html>
