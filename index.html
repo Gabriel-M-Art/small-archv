@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noimageindex">
+  <title>Privátní výběr plastik — Michal Gabriel</title>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #171717;
+      --border: #262626;
+      --text: #f5f5f5;
+      --muted: #a3a3a3;
+      --accent: #d4af37;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); padding: 3rem 1.5rem; line-height: 1.5; }
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    header { border-bottom: 1px solid var(--border); padding-bottom: 2rem; margin-bottom: 3rem; text-align: center; }
+    .badge {
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      font-size: 0.75rem;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      margin-bottom: 0.75rem;
+    }
+    h1 { font-size: 2.2rem; font-weight: 300; margin-bottom: 0.5rem; }
+    .client-title { color: var(--accent); font-size: 1.15rem; font-style: italic; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.25s, border-color 0.25s;
+    }
+    .card:hover { transform: translateY(-4px); border-color: #404040; }
+
+    .img-box { width: 100%; height: 300px; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .img-box img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+    .card:hover .img-box img { transform: scale(1.03); }
+
+    .card-body { padding: 1.5rem; display: flex; flex-direction: column; flex-grow: 1; }
+    .card-title { font-size: 1.2rem; font-weight: 500; margin-bottom: 0.3rem; }
+    .card-meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.75rem; }
+    .card-price { font-size: 1.05rem; color: var(--accent); font-weight: 600; margin-bottom: 1rem; }
+    .card-dims { margin-top: auto; border-top: 1px solid var(--border); padding-top: 0.75rem; font-size: 0.85rem; color: var(--muted); }
+
+    /* Modal / Detail */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+      display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 100;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto;
+      display: grid; grid-template-columns: 1.3fr 1fr; position: relative;
+    }
+    @media (max-width: 768px) { .modal { grid-template-columns: 1fr; } }
+
+    .modal-gallery { background: #000; padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
+    .modal-main-img { width: 100%; height: 380px; display: flex; align-items: center; justify-content: center; }
+    .modal-main-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    
+    .thumbnails { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+    .thumb {
+      width: 60px; height: 60px; border-radius: 4px; border: 2px solid transparent;
+      overflow: hidden; cursor: pointer; opacity: 0.6;
+    }
+    .thumb.active, .thumb:hover { opacity: 1; border-color: var(--accent); }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+    .modal-info { padding: 2rem; display: flex; flex-direction: column; }
+    .modal-close {
+      position: absolute; top: 1rem; right: 1rem; background: transparent; border: 1px solid var(--border);
+      color: var(--text); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1.2rem;
+    }
+    .specs { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.9rem; }
+    .specs td { padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+    .specs td:last-child { text-align: right; font-weight: 500; }
+
+    .empty { text-align: center; color: var(--muted); padding: 5rem 1rem; grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="badge">Privátní prezentace</div>
+      <h1>Michal Gabriel</h1>
+      <div id="clientTitle" class="client-title"></div>
+    </header>
+
+    <div id="grid" class="grid"></div>
+  </div>
+
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <div class="modal-gallery">
+        <div class="modal-main-img" id="modalMainImg"></div>
+        <div class="thumbnails" id="modalThumbs"></div>
+      </div>
+      <div class="modal-info">
+        <h2 id="modalName" style="font-size: 1.6rem; margin-bottom: 0.5rem;"></h2>
+        <div id="modalMeta" style="color: var(--muted); font-size: 0.9rem;"></div>
+        <table class="specs">
+          <tr><td>Výška (V)</td><td id="modalV">–</td></tr>
+          <tr><td>Šířka (Š)</td><td id="modalS">–</td></tr>
+          <tr><td>Hloubka (H)</td><td id="modalH">–</td></tr>
+          <tr id="modalPriceRow"><td>Cena</td><td id="modalPrice" style="color: var(--accent);">–</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentOfferItems = [];
+
+    function parsePayload() {
+      const hash = window.location.hash;
+      if (!hash.includes("nabidka=")) {
+        document.getElementById("grid").innerHTML = '<div class="empty">Žádná nabídka nebyla nalezena.</div>';
+        return;
+      }
+      try {
+        const rawB64 = decodeURIComponent(hash.split("nabidka=")[1]);
+        const jsonStr = decodeURIComponent(escape(atob(rawB64)));
+        const data = JSON.parse(jsonStr);
+        renderOffer(data);
+      } catch (e) {
+        document.getElementById("grid").innerHTML = '<div class="empty">Neplatný nebo poškozený odkaz nabídky.</div>';
+      }
+    }
+
+    function renderOffer(data) {
+      if (data.c) {
+        document.getElementById("clientTitle").textContent = `Výběr děl připravený pro: ${data.c}`;
+      }
+      currentOfferItems = data.items || [];
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      currentOfferItems.forEach((item, idx) => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const mainImgUrl = (item.imgs && item.imgs.length > 0) ? item.imgs[0] : "";
+        const imgMarkup = mainImgUrl
+          ? `<img src="${mainImgUrl}" alt="${escapeHtml(item.n)}" loading="lazy">`
+          : `<div style="color:var(--muted);font-size:0.85rem;">Fotografie v přípravě</div>`;
+
+        const priceMarkup = item.p ? `<div class="card-price">${escapeHtml(item.p)}</div>` : "";
+
+        card.innerHTML = `
+          <div class="img-box">${imgMarkup}</div>
+          <div class="card-body">
+            <h3 class="card-title">${escapeHtml(item.n)}</h3>
+            <div class="card-meta">Rok: ${escapeHtml(item.y || '–')} | ${escapeHtml(item.g || '')}</div>
+            ${priceMarkup}
+            <div class="card-dims">V: ${escapeHtml(item.v)} × Š: ${escapeHtml(item.s)} × H: ${escapeHtml(item.h)} cm</div>
+          </div>
+        `;
+
+        card.addEventListener("click", () => openModal(idx));
+        grid.appendChild(card);
+      });
+    }
+
+    function openModal(idx) {
+      const item = currentOfferItems[idx];
+      document.getElementById("modalName").textContent = item.n;
+      document.getElementById("modalMeta").textContent = `Rok: ${item.y} | Skupina: ${item.g}`;
+      document.getElementById("modalV").textContent = `${item.v} cm`;
+      document.getElementById("modalS").textContent = `${item.s} cm`;
+      document.getElementById("modalH").textContent = `${item.h} cm`;
+
+      const priceRow = document.getElementById("modalPriceRow");
+      if (item.p) {
+        document.getElementById("modalPrice").textContent = item.p;
+        priceRow.style.display = "table-row";
+      } else {
+        priceRow.style.display = "none";
+      }
+
+      const mainBox = document.getElementById("modalMainImg");
+      const thumbBox = document.getElementById("modalThumbs");
+      thumbBox.innerHTML = "";
+
+      if (item.imgs && item.imgs.length > 0) {
+        mainBox.innerHTML = `<img id="activeImg" src="${item.imgs[0]}">`;
+
+        // Pokud má socha více fotek (hlavní + M, N, O), vytvoří miniatury
+        if (item.imgs.length > 1) {
+          item.imgs.forEach((u, i) => {
+            const t = document.createElement("div");
+            t.className = `thumb ${i === 0 ? 'active' : ''}`;
+            t.innerHTML = `<img src="${u}">`;
+            t.addEventListener("click", () => {
+              document.getElementById("activeImg").src = u;
+              document.querySelectorAll(".thumb").forEach(el => el.classList.remove("active"));
+              t.classList.add("active");
+            });
+            thumbBox.appendChild(t);
+          });
+        }
+      } else {
+        mainBox.innerHTML = `<div style="color:var(--muted)">Fotografie není k dispozici</div>`;
+      }
+
+      document.getElementById("modalOverlay").classList.add("active");
+    }
+
+    function closeModal() {
+      document.getElementById("modalOverlay").classList.remove("active");
+    }
+
+    document.getElementById("modalOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "modalOverlay") closeModal();
+    });
+
+    function escapeHtml(str) {
+      return String(str || "").replace(/[&<>"']/g, m => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[m]);
+    }
+
+    window.addEventListener("load", parsePayload);
+    window.addEventListener("hashchange", parsePayload);
+  </script>
+</body>
+</html>
